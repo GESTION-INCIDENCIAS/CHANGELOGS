@@ -1,0 +1,123 @@
+CREATE DATABASE IF NOT EXISTS gestion_incidencias
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE gestion_incidencias;
+
+-- ============ USUARIOS ============
+CREATE TABLE usuarios (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(120) NOT NULL,
+  email VARCHAR(150) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  rol ENUM('admin','analista','viewer') DEFAULT 'analista',
+  activo TINYINT(1) DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============ CATÁLOGOS ============
+CREATE TABLE aplicativos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL UNIQUE,
+  activo TINYINT(1) DEFAULT 1
+);
+
+CREATE TABLE categorias (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(80) NOT NULL UNIQUE,
+  color VARCHAR(20) DEFAULT '#3b82f6'
+);
+
+CREATE TABLE sedes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL UNIQUE
+);
+
+CREATE TABLE analistas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(120) NOT NULL,
+  email VARCHAR(150) UNIQUE,
+  nivel TINYINT NOT NULL,
+  activo TINYINT(1) DEFAULT 1
+);
+
+-- ============ TICKETS ============
+CREATE TABLE tickets (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  codigo VARCHAR(20) NOT NULL UNIQUE,
+  titulo VARCHAR(200) NOT NULL,
+  aplicativo_id INT NOT NULL,
+  categoria_id INT NOT NULL,
+  sede_id INT NOT NULL,
+  analista_id INT NULL,
+  nivel TINYINT NOT NULL DEFAULT 1,
+  prioridad ENUM('Baja','Media','Alta','Crítica') DEFAULT 'Media',
+  estado ENUM('Abierto','En Proceso','Resuelto','Cerrado','Cancelado') DEFAULT 'Abierto',
+  sla_horas INT NOT NULL DEFAULT 8,
+  fecha_apertura DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fecha_cierre DATETIME NULL,
+  cumplio_sla TINYINT(1) DEFAULT NULL,
+  tiempo_atencion_horas DECIMAL(10,2) NULL,
+  CONSTRAINT fk_ticket_app FOREIGN KEY (aplicativo_id) REFERENCES aplicativos(id),
+  CONSTRAINT fk_ticket_cat FOREIGN KEY (categoria_id) REFERENCES categorias(id),
+  CONSTRAINT fk_ticket_sede FOREIGN KEY (sede_id) REFERENCES sedes(id),
+  CONSTRAINT fk_ticket_analista FOREIGN KEY (analista_id) REFERENCES analistas(id),
+  INDEX idx_fecha (fecha_apertura),
+  INDEX idx_estado (estado)
+);
+
+-- ============ SEED ============
+INSERT INTO aplicativos (nombre) VALUES
+('ERP SAP'),('Correo Exchange'),('CRM Salesforce'),
+('Intranet HR'),('VPN Access'),('Otros');
+
+INSERT INTO categorias (nombre, color) VALUES
+('Hardware','#64748b'),('Software','#3b82f6'),
+('Redes','#10b981'),('Accesos','#f59e0b');
+
+INSERT INTO sedes (nombre) VALUES
+('Sede Principal'),('Planta Norte'),('Oficina Sur'),('Remoto');
+
+INSERT INTO analistas (nombre, email, nivel) VALUES
+('Carlos Pérez','cperez@empresa.com',1),
+('Ana Gómez','agomez@empresa.com',1),
+('Luis Rojas','lrojas@empresa.com',2),
+('María Díaz','mdiaz@empresa.com',2),
+('Jorge Silva','jsilva@empresa.com',3);
+
+-- Usuario admin por defecto
+-- password: admin123 (hash bcrypt)
+INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES
+('Admin User','admin@empresa.com','$2a$10$JPPYZpNeE4D8Zgh4TzPzxOwysUFhaITX54TD2vCK23ibSaNJOmk6a','admin');
+
+-- Poblar tickets
+DELIMITER $$
+CREATE PROCEDURE seed_tickets()
+BEGIN
+  DECLARE i INT DEFAULT 1;
+  WHILE i <= 1200 DO
+    INSERT INTO tickets (
+      codigo, titulo, aplicativo_id, categoria_id, sede_id, analista_id,
+      nivel, prioridad, estado, sla_horas, fecha_apertura, fecha_cierre,
+      cumplio_sla, tiempo_atencion_horas
+    ) VALUES (
+      CONCAT('TK-', LPAD(i,5,'0')),
+      CONCAT('Incidente de prueba #', i),
+      FLOOR(1 + RAND()*6),
+      FLOOR(1 + RAND()*4),
+      FLOOR(1 + RAND()*4),
+      FLOOR(1 + RAND()*5),
+      FLOOR(1 + RAND()*3),
+      ELT(FLOOR(1 + RAND()*4),'Baja','Media','Alta','Crítica'),
+      ELT(FLOOR(1 + RAND()*4),'Resuelto','Cerrado','Cerrado','En Proceso'),
+      8,
+      DATE_SUB(NOW(), INTERVAL FLOOR(RAND()*365) DAY),
+      IF(RAND() > 0.1, DATE_SUB(NOW(), INTERVAL FLOOR(RAND()*300) DAY), NULL),
+      IF(RAND() > 0.08, 1, 0),
+      ROUND(0.5 + RAND()*20, 2)
+    );
+    SET i = i + 1;
+  END WHILE;
+END$$
+DELIMITER ;
+
+CALL seed_tickets();
+DROP PROCEDURE seed_tickets;
