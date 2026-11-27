@@ -1,0 +1,216 @@
+DROP DATABASE IF EXISTS gestion_incidencias;
+CREATE DATABASE gestion_incidencias
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE gestion_incidencias;
+
+-- ============ USUARIOS ============
+CREATE TABLE usuarios (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(120) NOT NULL,
+  email VARCHAR(150) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  rol ENUM('admin','analista','viewer') DEFAULT 'analista',
+  activo TINYINT DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============ CATÁLOGOS ============
+CREATE TABLE aplicativos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL UNIQUE,
+  activo TINYINT DEFAULT 1
+);
+
+CREATE TABLE categorias (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(80) NOT NULL UNIQUE,
+  color VARCHAR(20) DEFAULT '#3b82f6'
+);
+
+CREATE TABLE sedes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL UNIQUE
+);
+
+CREATE TABLE analistas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(120) NOT NULL,
+  email VARCHAR(150) UNIQUE,
+  nivel TINYINT NOT NULL,
+  activo TINYINT DEFAULT 1
+);
+
+-- ============ TICKETS (ANTES de los INSERT) ============
+CREATE TABLE tickets (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  codigo VARCHAR(20) NOT NULL UNIQUE,
+  titulo VARCHAR(200) NOT NULL,
+  aplicativo_id INT NOT NULL,
+  categoria_id INT NOT NULL,
+  sede_id INT NOT NULL,
+  analista_id INT NULL,
+  nivel TINYINT NOT NULL DEFAULT 1,
+  prioridad ENUM('Baja','Media','Alta','Crítica') DEFAULT 'Media',
+  estado ENUM('Abierto','En Proceso','Resuelto','Cerrado','Cancelado') DEFAULT 'Abierto',
+  sla_horas INT NOT NULL DEFAULT 8,
+  fecha_apertura DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fecha_cierre DATETIME NULL,
+  cumplio_sla TINYINT DEFAULT NULL,
+  tiempo_atencion_horas DECIMAL(10,2) NULL,
+  CONSTRAINT fk_ticket_app FOREIGN KEY (aplicativo_id) REFERENCES aplicativos(id),
+  CONSTRAINT fk_ticket_cat FOREIGN KEY (categoria_id) REFERENCES categorias(id),
+  CONSTRAINT fk_ticket_sede FOREIGN KEY (sede_id) REFERENCES sedes(id),
+  CONSTRAINT fk_ticket_analista FOREIGN KEY (analista_id) REFERENCES analistas(id),
+  INDEX idx_fecha (fecha_apertura),
+  INDEX idx_estado (estado)
+);
+
+-- ============ SEED: CATÁLOGOS ============
+INSERT INTO aplicativos (nombre) VALUES
+('ERP SAP'),('Correo Exchange'),('CRM Salesforce'),('Intranet HR'),
+('VPN Access'),('Otros'),('Jira Service Desk'),('GitLab'),
+('Office 365'),('Zoom');
+
+INSERT INTO categorias (nombre, color) VALUES
+('Hardware',      '#64748b'),
+('Software',      '#3b82f6'),
+('Redes',         '#10b981'),
+('Accesos',       '#f59e0b'),
+('Base de Datos', '#8b5cf6'),
+('Seguridad',     '#ef4444');
+
+INSERT INTO sedes (nombre) VALUES
+('Sede Principal'),('Planta Norte'),('Oficina Sur'),
+('Remoto'),('Sede Lima Centro'),('Sede Arequipa');
+
+INSERT INTO analistas (nombre, email, nivel, activo) VALUES
+('Carlos Pérez',    'cperez@empresa.com',   1, 1),
+('Ana Gómez',       'agomez@empresa.com',   1, 1),
+('Luis Rojas',      'lrojas@empresa.com',   2, 1),
+('María Díaz',      'mdiaz@empresa.com',    2, 1),
+('Jorge Silva',     'jsilva@empresa.com',   3, 1),
+('Roberto Vargas',  'rvargas@empresa.com',  1, 1),
+('Patricia Núñez',  'pnunez@empresa.com',   2, 1),
+('Andrés Quispe',   'aquispe@empresa.com',  3, 1),
+('Carmen Loayza',   'cloayza@empresa.com',  2, 0);
+
+-- ============ SEED: USUARIOS ============
+SET @hash = '$2a$10$rF8yVxHqN5pZ8wJ3kL9mYuI2oP4cT6sB7nD1gH5jK8lM0qR3tW6v';
+
+INSERT INTO usuarios (nombre, email, password_hash, rol, activo) VALUES
+('Admin User',    'admin@empresa.com',    @hash, 'admin',    1),
+('Ana Torres',    'atorres@empresa.com',  @hash, 'analista', 1),
+('Luis Mendoza',  'lmendoza@empresa.com', @hash, 'analista', 1),
+('Sofía Ramos',   'sramos@empresa.com',   @hash, 'viewer',   1),
+('Diego Castro',  'dcastro@empresa.com',  @hash, 'admin',    1),
+('María Paredes', 'mparedes@empresa.com', @hash, 'analista', 1),
+('Pedro Silva',   'psilva@empresa.com',   @hash, 'analista', 0),
+('Lucía Vega',    'lvega@empresa.com',    @hash, 'viewer',   1),
+('Carlos Ríos',   'crios@empresa.com',    @hash, 'analista', 1),
+('Elena Vargas',  'evargas@empresa.com',  @hash, 'viewer',   1);
+
+UPDATE usuarios
+SET password_hash = '$2b$10$P9/GW9yLlQJcX/36JXwYv.YiXPNJl.QV8oA6aHTYgMeqiYqJlBdDe'
+WHERE email = 'admin@empresa.com';
+
+
+
+
+UPDATE usuarios
+SET password_hash = '$2a$10$CYT6Yx2Gs/u5LZ0o044S0uwe5Iv99BeW.LGOa7tqM9d4cMefkT5K2'
+WHERE email = 'admin@empresa.com';
+
+
+
+
+$2a$10$CYT6Yx2Gs/u5LZ0o044S0uwe5Iv99BeW.LGOa7tqM9d4cMefkT5K2
+-- ============ SEED: 4 TICKETS DE EJEMPLO ============
+INSERT INTO tickets (
+  codigo, titulo, aplicativo_id, categoria_id, sede_id, analista_id,
+  nivel, prioridad, estado, sla_horas, fecha_apertura, fecha_cierre,
+  cumplio_sla, tiempo_atencion_horas
+) VALUES
+('TK-90001','Caída total del ERP SAP en Sede Principal',
+ 1,5,1,5, 3,'Crítica','Resuelto',8,
+ DATE_SUB(NOW(),INTERVAL 3 DAY),
+ DATE_ADD(DATE_SUB(NOW(),INTERVAL 3 DAY),INTERVAL 5 HOUR),
+ 1,5.00),
+('TK-90002','VPN no conecta desde Remoto - múltiples usuarios',
+ 5,3,4,3, 2,'Alta','En Proceso',8,
+ DATE_SUB(NOW(),INTERVAL 1 DAY), NULL, NULL, NULL),
+('TK-90003','Correo Exchange lento en Planta Norte',
+ 2,2,2,2, 1,'Media','Cerrado',24,
+ DATE_SUB(NOW(),INTERVAL 5 DAY),
+ DATE_ADD(DATE_SUB(NOW(),INTERVAL 5 DAY),INTERVAL 30 HOUR),
+ 0,30.00),
+('TK-90004','Solicitud de acceso a Jira Service Desk',
+ 7,4,5,1, 1,'Baja','Abierto',24,
+ DATE_SUB(NOW(),INTERVAL 2 HOUR), NULL, NULL, NULL);
+
+-- ============ SEED MASIVO: 1500 tickets ============
+DELIMITER $$
+CREATE PROCEDURE seed_tickets()
+BEGIN
+  DECLARE i INT DEFAULT 1;
+  DECLARE v_apertura DATETIME;
+  DECLARE v_cierre DATETIME;
+  DECLARE v_estado VARCHAR(20);
+  DECLARE v_cerrado TINYINT;
+  DECLARE v_horas DECIMAL(10,2);
+
+  WHILE i <= 1500 DO
+    SET v_apertura = DATE_SUB(NOW(), INTERVAL FLOOR(RAND()*30) DAY);
+    SET v_estado = ELT(FLOOR(1 + RAND()*5),
+      'Resuelto','Cerrado','Cerrado','En Proceso','Abierto');
+    SET v_cerrado = IF(v_estado IN ('Resuelto','Cerrado'), 1, 0);
+
+    IF v_cerrado = 1 THEN
+      SET v_horas = ROUND(0.5 + RAND()*20, 2);
+      SET v_cierre = DATE_ADD(v_apertura, INTERVAL FLOOR(v_horas) HOUR);
+    ELSE
+      SET v_horas = NULL;
+      SET v_cierre = NULL;
+    END IF;
+
+    INSERT INTO tickets (
+      codigo, titulo, aplicativo_id, categoria_id, sede_id, analista_id,
+      nivel, prioridad, estado, sla_horas, fecha_apertura, fecha_cierre,
+      cumplio_sla, tiempo_atencion_horas
+    ) VALUES (
+      CONCAT('TK-', LPAD(i,5,'0')),
+      CONCAT('Incidente de prueba #', i),
+      FLOOR(1 + RAND()*10), FLOOR(1 + RAND()*6),
+      FLOOR(1 + RAND()*6),  FLOOR(1 + RAND()*9),
+      FLOOR(1 + RAND()*3),
+      ELT(FLOOR(1 + RAND()*4),'Baja','Media','Alta','Crítica'),
+      v_estado,
+      ELT(FLOOR(1 + RAND()*3), 4, 8, 24),
+      v_apertura, v_cierre,
+      IF(v_cerrado = 1, IF(RAND() > 0.15, 1, 0), NULL),
+      v_horas
+    );
+    SET i = i + 1;
+  END WHILE;
+END$$
+DELIMITER ;
+
+CALL seed_tickets();
+DROP PROCEDURE seed_tickets;
+
+
+
+SELECT COUNT(*) AS total FROM tickets;
+
+-- Los 4 de ejemplo
+SELECT codigo, titulo, estado, fecha_apertura
+FROM tickets
+WHERE codigo LIKE 'TK-9%'
+ORDER BY codigo;
+
+-- ============ VERIFICACIÓN ============
+SELECT '✅ BASE DE DATOS POBLADA' AS status;
+
+SELECT 'Tickets totales' AS tabla, COUNT(*) AS total FROM tickets
+UNION ALL SELECT 'Tickets ejemplo TK-9xxxx', COUNT(*) FROM tickets WHERE codigo LIKE 'TK-9%'
+UNION ALL SELECT 'Cerrados', COUNT(*) FROM tickets WHERE estado IN ('Resuelto','Cerrado')
+UNION ALL SELECT 'Con SLA cumplido', COUNT(*) FROM tickets WHERE cumplio_sla = 1;
